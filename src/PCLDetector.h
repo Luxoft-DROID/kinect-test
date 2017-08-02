@@ -17,8 +17,8 @@ typedef struct meaningfulPoints
 
 class PCLDetector
 {
-public:
-    PCLDetector(){}
+  public:
+    PCLDetector() {}
     PCLDetector(PointCloud::Ptr cloud);
     mPoints getMeaningfulPoints();
     PointCloud::Ptr getPlane();
@@ -29,12 +29,13 @@ public:
     pcl::PointXYZ getNearestPointOnPlane();
     pcl::PointXYZ getFarestPointOnPlane();
     pcl::PointXYZ getNearestObjectPonit();
-private:
+
+  private:
     void extractPlain();
 
     PointCloud::Ptr _cloud;
     PointCloud::Ptr _plane;
-  	PointCloud::Ptr _obsticles;
+    PointCloud::Ptr _obsticles;
 };
 
 #endif
