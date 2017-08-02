@@ -1,170 +1,89 @@
-//TODO: Fix code in this file. Export openGL related functions to other classes
-
-#include <QCoreApplication>
 #include "kinectdevice.h"
+#include <pcl/io/pcd_io.h>
+#include <pcl/io/ply_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/console/parse.h>
+#include <pcl/common/transforms.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/visualization/pcl_visualizer.h>
 
-//define OpenGL variables
-GLuint gl_depth_tex;
-GLuint gl_rgb_tex;
-int g_argc;
-char **g_argv;
-int got_frames(0);
-int window(0);
+#include <algorithm>
+#include "PCLDetector.h"
 
-std::vector<uint8_t> createDepthImg(const std::vector<uint16_t>& depth);
-
-//define libfreenect variables
-Freenect::Freenect freenect;
-KinectDevice* device;
-double freenect_angle(0);
-freenect_video_format requested_format(FREENECT_VIDEO_RGB);
-
-//define Kinect Device control elements
-//glutKeyboardFunc Handler
-void keyPressed(unsigned char key, int x, int y)
+void run(KinectDevice* device)
 {
-    if (key == 27) {
-        device->setLed(LED_OFF);
-        freenect_angle = 0;
-        glutDestroyWindow(window);
-    }
-    if (key == '1') {
-        device->setLed(LED_GREEN);
-    }
-    if (key == '2') {
-        device->setLed(LED_RED);
-    }
-    if (key == '3') {
-        device->setLed(LED_YELLOW);
-    }
-    if (key == '4') {
-        device->setLed(LED_BLINK_GREEN);
-    }
-    if (key == '5') {
-        // 5 is the same as 4
-        device->setLed(LED_BLINK_GREEN);
-    }
-    if (key == '6') {
-        device->setLed(LED_BLINK_RED_YELLOW);
-    }
-    if (key == '0') {
-        device->setLed(LED_OFF);
-    }
-    if (key == 'f') {
-        if (requested_format == FREENECT_VIDEO_IR_8BIT) {
-            requested_format = FREENECT_VIDEO_RGB;
-        } else if (requested_format == FREENECT_VIDEO_RGB){
-            requested_format = FREENECT_VIDEO_YUV_RGB;
-        } else {
-            requested_format = FREENECT_VIDEO_IR_8BIT;
-        }
-        device->setVideoFormat(requested_format);
-    }
+  	PointCloud::Ptr msg (new PointCloud);
+  	msg->header.frame_id = "some_tf_frame";
+  	msg->height = msg->width = 1;
+  	msg->is_dense = false;
+  	pcl::visualization::PCLVisualizer viewer ("Matrix transformation example");
 
-    if (key == 'w') {
-        freenect_angle++;
-        if (freenect_angle > 30) {
-            freenect_angle = 30;
-        }
+	PCLDetector detector(msg);
+    viewer.addCoordinateSystem (1, "cloud", 0);
+   	viewer.addPointCloud (detector.getObsticles(), "obsticles");
+	viewer.addPointCloud (detector.getPlane(), "plain");
+   	viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "original_cloud");
+	
+	viewer.addText("Longest visible path",250,-200,1,0,1);
+
+	while (!viewer.wasStopped ()) {
+		static std::vector<uint16_t> depth(640*480);
+		static std::vector<uint8_t> rgb(640*480*4);
+		device->getRGB(rgb);
+		device->getDepth(depth);
+
+		for(int i = 0; i < depth.size() ; i+=7)
+		{
+			if(depth[i] < 1000)
+			{
+				auto point = pcl::PointXYZRGB(rgb[3*i], rgb[3*i+1], rgb[3*i+2]);
+				point.x = i%640 - 320;
+				point.y = i/640 - 240;
+				point.z = depth[i];
+				msg->points.push_back(point);
+			}
+		}
+		
+		detector.setPointCloud(msg);
+		auto nearestPoint = detector.getNearestPointOnPlane();
+		auto nearestObj  = detector.getNearestObjectPonit();
+		viewer.addLine (nearestPoint, detector.getFarestPointOnPlane(), 0, 255, 0, "Best tragectory");
+		viewer.addLine (pcl::PointXYZ(0,0,0),nearestObj, 255, 0, 0, "nearestObj");
+		viewer.addLine (nearestPoint, nearestObj, 255, 0, 0, "nearestObjplane");
+
+	    viewer.updatePointCloud (detector.getObsticles(), "obsticles");
+		viewer.updatePointCloud (detector.getPlane(), "plain");
+      	viewer.spinOnce ();
+      	msg->clear();
+		detector.getPlane()->clear();
+		detector.getObsticles()->clear();
+
+      	viewer.removeShape ("Best tragectory", 0);
+      	viewer.removeShape ("nearestObj", 0);
+      	viewer.removeShape ("nearestObjplane", 0); 
     }
-    if (key == 's' || key == 'd') {
-        freenect_angle = 10;
-    }
-    if (key == 'x') {
-        freenect_angle--;
-        if (freenect_angle < -30) {
-            freenect_angle = -30;
-        }
-    }
-    if (key == 'e') {
-        freenect_angle = 10;
-    }
-    if (key == 'c') {
-        freenect_angle = -10;
-    }
-    device->setTiltDegrees(freenect_angle);
-}
-//define OpenGL functions
-void DrawGLScene()
-{
-    static std::vector<uint8_t> rgb(640*480*4);
-
-
-    device->updateState();
-    fflush(stdout);
-
-    auto depthImg = device->createDepthImg();
-    device->getRGB(rgb);
-
-    auto depthImg = createDepthImg(depth);
-
-    got_frames = 0;
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glLoadIdentity();
-
-    glEnable(GL_TEXTURE_2D);
-
-    glBindTexture(GL_TEXTURE_2D, gl_depth_tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, 4, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, &depthImg[0]);
-    glPointSize(1.0);
-    glBegin(GL_TRIANGLE_FAN);
-    glColor4f(255.0f, 255.0f, 255.0f, 255.0f);
-    glTexCoord2f(0, 0); glVertex3f(0,0,0);
-    glTexCoord2f(1, 0); glVertex3f(640,0,0);
-    glTexCoord2f(1, 1); glVertex3f(640,480,0);
-    glTexCoord2f(0, 1); glVertex3f(0,480,0);
-
-    glEnd();
-    glutSwapBuffers();
-}
-
-void InitGL()
-{
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClearDepth(1.0);
-    glDepthFunc(GL_LESS);
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glShadeModel(GL_SMOOTH);
-    glGenTextures(1, &gl_depth_tex);
-    glBindTexture(GL_TEXTURE_2D, gl_depth_tex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho (0, 640, 480, 0, 0.0f, 1.0f);
-    glMatrixMode(GL_MODELVIEW);
-}
-
-void displayKinectData(){
-    glutInit(&g_argc, g_argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_ALPHA | GLUT_DEPTH);
-    glutInitWindowSize(640, 480);
-    glutInitWindowPosition(0, 0);
-    window = glutCreateWindow("c++ wrapper example");
-    glutDisplayFunc(&DrawGLScene);
-    glutIdleFunc(&DrawGLScene);
-    glutKeyboardFunc(&keyPressed);
-    InitGL();
-    glutMainLoop();
 }
 
 int main(int argc, char *argv[])
 {
+	Freenect::Freenect freenect;
+	KinectDevice* device;
+	double freenect_angle(0);
+	freenect_video_format requested_format(FREENECT_VIDEO_RGB);
     //Get Kinect Device
     device = &freenect.createDevice<KinectDevice>(0);
     //Start Kinect Device
-    device->setTiltDegrees(10);
+    device->setTiltDegrees(-16);
     device->startVideo();
     device->startDepth();
     //handle Kinect Device Data
     device->setLed(LED_GREEN);
-    displayKinectData();
+    run(device);
 
-    //Stop Kinect Device
-    //device->stopVideo();
+    device->stopVideo();
     device->stopDepth();
     device->setLed(LED_OFF);
+
+	return 0;
 }
