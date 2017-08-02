@@ -22,7 +22,7 @@ void run(KinectDevice *device)
 	PCLDetector detector(msg);
 	viewer.addCoordinateSystem(1, "cloud", 0);
 	viewer.addPointCloud(detector.getObsticles(), "obsticles");
-	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "original_cloud");
+	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "obsticles");
 
 	while (!viewer.wasStopped())
 	{

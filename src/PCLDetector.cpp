@@ -43,8 +43,10 @@ PointCloud::Ptr PCLDetector::getObsticles()
 
 void PCLDetector::extractPlain()
 {
-    pcl::ModelCoefficients::Ptr plane(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliersPlane(new pcl::PointIndices);
+    if(_cloud->size() == 0) return;
+
+    static pcl::ModelCoefficients::Ptr plane(new pcl::ModelCoefficients);
+    static pcl::PointIndices::Ptr inliersPlane(new pcl::PointIndices);
 
     plane->values.resize(4);
     pcl::SACSegmentation<pcl::PointXYZRGB> seg;
