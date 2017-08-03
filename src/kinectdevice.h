@@ -22,6 +22,11 @@ class KinectDevice final : public Freenect::FreenectDevice
     bool getRGB(std::vector<uint8_t> &buffer);
     bool getDepth(std::vector<uint16_t> &buffer);
 
+    static const int FREENECT_FRAME_W;
+    static const int FREENECT_FRAME_H;
+    static const int FREENECT_FRAME_PIX;
+    static const int FREENECT_VIDEO_RGB_SIZE;
+    static const int COLOR_MAX_VALUE;
   private:
     std::vector<uint16_t> m_buffer_depth;
     std::vector<uint8_t> m_buffer_video;
@@ -29,12 +34,6 @@ class KinectDevice final : public Freenect::FreenectDevice
     std::mutex m_depth_mutex;
     bool m_new_rgb_frame;
     bool m_new_depth_frame;
-
-    static const int FREENECT_FRAME_W;
-    static const int FREENECT_FRAME_H;
-    static const int FREENECT_FRAME_PIX;
-    static const int FREENECT_VIDEO_RGB_SIZE;
-    static const int COLOR_MAX_VALUE;
 };
 
 #endif // KINECTDEVICE_H

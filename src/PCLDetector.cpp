@@ -1,5 +1,17 @@
 #include "PCLDetector.h"
 
+#include "pcl/kdtree/kdtree.h"
+#include "pcl/filters/extract_indices.h"
+#include "pcl/features/normal_3d.h"
+#include "pcl/sample_consensus/method_types.h"
+#include "pcl/sample_consensus/model_types.h"
+#include "pcl/segmentation/sac_segmentation.h"
+#include "pcl/segmentation/extract_clusters.h"
+#include "pcl/ModelCoefficients.h"
+#include "pcl/point_types.h"
+
+#include <algorithm>
+
 PCLDetector::PCLDetector(PointCloud::Ptr cloud)
     : _cloud(cloud)
 {
@@ -11,19 +23,9 @@ PCLDetector::PCLDetector(PointCloud::Ptr cloud)
 void PCLDetector::setPointCloud(PointCloud::Ptr cloud)
 {
     _cloud = cloud;
-    _plane = PointCloud::Ptr(new PointCloud);
-    _obsticles = PointCloud::Ptr(new PointCloud);
+    _plane->clear();
+    _obsticles->clear();
     extractPlain();
-}
-
-mPoints PCLDetector::getMeaningfulPoints()
-{
-    mPoints points;
-    points.nearestOnPlane = getNearestPointOnPlane();
-    points.farestOnPlane = getFarestPointOnPlane();
-    points.nearestObj = getNearestObjectPonit();
-
-    return points;
 }
 
 PointCloud::Ptr PCLDetector::getCloud()
@@ -54,6 +56,7 @@ void PCLDetector::extractPlain()
     seg.setMethodType(pcl::SAC_RANSAC);
     seg.setModelType(pcl::SACMODEL_PLANE);
     seg.setDistanceThreshold(7.0f);
+    seg.setMaxIterations (50);
 
     seg.setInputCloud(_cloud);
     seg.segment(*inliersPlane, *plane);
@@ -111,7 +114,7 @@ pcl::PointXYZ PCLDetector::getFarestPointOnPlane()
 
 pcl::PointXYZ PCLDetector::getNearestObjectPonit()
 {
-    static const auto threshHold = 5;
+    static const auto threshHold = 10;
 
     std::sort(_obsticles->begin(), _obsticles->end(),
               [](pcl::PointXYZRGB &a, pcl::PointXYZRGB &b) {
@@ -121,7 +124,8 @@ pcl::PointXYZ PCLDetector::getNearestObjectPonit()
     pcl::PointXYZ nearestObj;
     for (int i = 0; i < _obsticles->size() - 1; i++)
     {
-        if (_obsticles->at(i).y - _obsticles->at(i + 1).y < threshHold)
+        if (_obsticles->at(i).y - _obsticles->at(i + 1).y < threshHold &&
+            _obsticles->at(i).z - _obsticles->at(i + 1).z < threshHold)
         {
             nearestObj.x = _obsticles->at(i).x;
             nearestObj.y = _obsticles->at(i).y;
@@ -130,4 +134,65 @@ pcl::PointXYZ PCLDetector::getNearestObjectPonit()
     }
 
     return nearestObj;
+}
+
+std::vector<Cube> PCLDetector::getObjectsRectangles()
+{
+    static const double tolerance(35.0);
+    static const int minClusterSize(25);
+    static const int maxClusterSize(2000);
+
+        std::vector<Cube> retArr;
+    if (_obsticles->size() == 0)
+        return retArr;
+
+    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>);
+    tree->setInputCloud(_obsticles);
+
+    std::vector<pcl::PointIndices> clusterIndices;
+    pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
+    ec.setClusterTolerance(tolerance);
+    ec.setMinClusterSize(minClusterSize);
+    ec.setMaxClusterSize(maxClusterSize);
+    ec.setSearchMethod(tree);
+    ec.setInputCloud(_obsticles);
+    ec.extract(clusterIndices);
+    
+    for (std::vector<pcl::PointIndices>::const_iterator it = clusterIndices.begin(); it != clusterIndices.end(); ++it)
+    {
+        static pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudCluster(new pcl::PointCloud<pcl::PointXYZRGB>);
+        for (std::vector<int>::const_iterator pit = it->indices.begin(); pit != it->indices.end(); ++pit)
+        {
+            cloudCluster->points.push_back(_obsticles->points[*pit]);
+        }
+        cloudCluster->width = cloudCluster->points.size();
+        cloudCluster->height = 1;
+        cloudCluster->is_dense = true;
+
+        retArr.push_back(getCube(cloudCluster));
+        cloudCluster->clear();
+    }
+
+    return retArr;
+}
+
+Cube PCLDetector::getCube(PointCloud::Ptr cloud)
+{
+    Cube retCube{320, -320, 240, -240, 2048, 0};
+    for (auto &p : *cloud)
+    {
+        if (p.x < retCube.xMin)
+            retCube.xMin = p.x;
+        if (p.x > retCube.xMax)
+            retCube.xMax = p.x;
+        if (p.y < retCube.yMin)
+            retCube.yMin = p.y;
+        if (p.y > retCube.yMax)
+            retCube.yMax = p.y;
+        if (p.z < retCube.zMin)
+            retCube.zMin = p.z;
+        if (p.z > retCube.zMax)
+            retCube.zMax = p.z;
+    }
+    return retCube;
 }

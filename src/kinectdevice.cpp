@@ -72,7 +72,7 @@ bool KinectDevice::getDepth(std::vector<uint16_t> &buffer)
 }
 std::vector<uint8_t> KinectDevice::createDepthImg()
 {
-    std::vector<uint16_t> depth(640 * 480);
+    std::vector<uint16_t> depth(FREENECT_FRAME_PIX);
     getDepth(depth);
     std::vector<uint8_t> depthImg(FREENECT_VIDEO_RGB_SIZE);
     for (unsigned int i = 0; i < depth.size(); i++)

@@ -2,29 +2,30 @@
 #define PCLDETECTOR_H
 
 #include "pcl/point_cloud.h"
-#include "pcl/common/transforms.h"
-#include "pcl/filters/extract_indices.h"
-#include "pcl/segmentation/sac_segmentation.h"
+#include "pcl/point_types.h"
 
 using PointCloud = pcl::PointCloud<pcl::PointXYZRGB>;
 
-typedef struct meaningfulPoints
+typedef struct Cube
 {
-    pcl::PointXYZ nearestOnPlane;
-    pcl::PointXYZ farestOnPlane;
-    pcl::PointXYZ nearestObj;
-} mPoints;
+    float xMin;
+    float xMax;
+    float yMin;
+    float yMax;
+    float zMin;
+    float zMax;
+}Cube;
 
 class PCLDetector
 {
   public:
     PCLDetector() {}
     PCLDetector(PointCloud::Ptr cloud);
-    mPoints getMeaningfulPoints();
     PointCloud::Ptr getPlane();
     PointCloud::Ptr getObsticles();
     PointCloud::Ptr getCloud();
     void setPointCloud(PointCloud::Ptr cloud);
+    std::vector<Cube> getObjectsRectangles();
 
     pcl::PointXYZ getNearestPointOnPlane();
     pcl::PointXYZ getFarestPointOnPlane();
@@ -32,6 +33,7 @@ class PCLDetector
 
   private:
     void extractPlain();
+    Cube getCube(PointCloud::Ptr cloud);
 
     PointCloud::Ptr _cloud;
     PointCloud::Ptr _plane;

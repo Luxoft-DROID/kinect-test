@@ -7,8 +7,10 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/filters/voxel_grid.h>
 
 #include <algorithm>
+#include <string>
 #include "PCLDetector.h"
 
 void run(KinectDevice *device)
@@ -26,12 +28,12 @@ void run(KinectDevice *device)
 
 	while (!viewer.wasStopped())
 	{
-		static std::vector<uint16_t> depth(640 * 480);
-		static std::vector<uint8_t> rgb(640 * 480 * 4);
+		static std::vector<uint16_t> depth(KinectDevice::FREENECT_FRAME_PIX);
+		static std::vector<uint8_t> rgb(KinectDevice::FREENECT_VIDEO_RGB_SIZE);
 		device->getRGB(rgb);
 		device->getDepth(depth);
 
-		for (int i = 0; i < depth.size(); i += 19)
+		for (int i = 0; i < depth.size(); i += 57)
 		{
 			if (depth[i] < 1000)
 			{
@@ -44,21 +46,19 @@ void run(KinectDevice *device)
 		}
 
 		detector.setPointCloud(msg);
-		auto nearestPoint = detector.getNearestPointOnPlane();
-		auto nearestObj = detector.getNearestObjectPonit();
-		viewer.addLine(nearestPoint, detector.getFarestPointOnPlane(), 0, 255, 0, "Best tragectory");
-		viewer.addLine(pcl::PointXYZ(0, 0, 0), nearestObj, 255, 0, 0, "nearestObj");
-		viewer.addLine(nearestPoint, nearestObj, 255, 0, 0, "nearestObjplane");
+		auto cubeArr = detector.getObjectsRectangles();
+		for (auto &cube : cubeArr)
+		{
+			static int i = 0;
+			viewer.addCube(cube.xMin, cube.xMax, cube.yMin, cube.yMax, cube.zMin, cube.zMax,
+						   1.0, 0.0, 0.0, std::to_string(i++), 0);
+		}
 
 		viewer.updatePointCloud(detector.getObsticles(), "obsticles");
 		viewer.spinOnce();
 		msg->clear();
-		detector.getPlane()->clear();
-		detector.getObsticles()->clear();
 
-		viewer.removeShape("Best tragectory", 0);
-		viewer.removeShape("nearestObj", 0);
-		viewer.removeShape("nearestObjplane", 0);
+		viewer.removeAllShapes(0);
 	}
 }
 
