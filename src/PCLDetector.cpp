@@ -61,9 +61,9 @@ void PCLDetector::extractPlain()
     seg.setInputCloud(_cloud);
     seg.segment(*inliersPlane, *plane);
     static pcl::ExtractIndices<pcl::PointXYZRGB> extract;
-
     extract.setInputCloud(_cloud);
     extract.setIndices(inliersPlane);
+
     extract.setNegative(false);
     extract.filter(*_plane);
 

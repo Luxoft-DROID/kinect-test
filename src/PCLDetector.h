@@ -19,7 +19,6 @@ typedef struct Cube
 class PCLDetector
 {
   public:
-    PCLDetector() {}
     PCLDetector(PointCloud::Ptr cloud);
     PointCloud::Ptr getPlane();
     PointCloud::Ptr getObsticles();

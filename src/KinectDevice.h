@@ -1,16 +1,13 @@
 #ifndef KINECTDEVICE_H
 #define KINECTDEVICE_H
 
-#include <libfreenect.hpp>
+#include "libfreenect.hpp"
+
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <pthread.h>
 #include <mutex>
-
-#include <GL/glut.h>
-#include <GL/gl.h>
-#include <GL/glu.h>
 
 class KinectDevice final : public Freenect::FreenectDevice
 {

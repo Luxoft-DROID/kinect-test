@@ -1,4 +1,4 @@
-#include "kinectdevice.h"
+#include "KinectDevice.h"
 
 #include <numeric>
 
