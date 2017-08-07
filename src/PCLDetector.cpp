@@ -46,17 +46,20 @@ PointCloud::Ptr PCLDetector::getObsticles()
 void PCLDetector::extractPlain()
 {
     if(_cloud->size() == 0) return;
+    static const uint32_t numPlaneVlaues = 4;
+    static const float distanceThreshold = 7.0f;
+    static const uint32_t maxIterations = 50;
 
     static pcl::ModelCoefficients::Ptr plane(new pcl::ModelCoefficients);
     static pcl::PointIndices::Ptr inliersPlane(new pcl::PointIndices);
 
-    plane->values.resize(4);
+    plane->values.resize(numPlaneVlaues);
     pcl::SACSegmentation<pcl::PointXYZRGB> seg;
     seg.setOptimizeCoefficients(true);
     seg.setMethodType(pcl::SAC_RANSAC);
     seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setDistanceThreshold(7.0f);
-    seg.setMaxIterations (50);
+    seg.setDistanceThreshold(distanceThreshold);
+    seg.setMaxIterations (maxIterations);
 
     seg.setInputCloud(_cloud);
     seg.segment(*inliersPlane, *plane);
